@@ -4,33 +4,37 @@ import numpy
 
 BG_COLOR=(0,255,255)
 
-size=numpy.array([40,40])
-scale=numpy.array([12,12])
-wtop=numpy.array([-1,1])*(size/2)
-wbot=numpy.array([1,-1])*(size/2)
+size=numpy.array([40.,40.])
+scale=numpy.array([10.,10.])
+wtop=numpy.array([-1.,1.])*(size/2)
+wbot=numpy.array([1.,-1.])*(size/2)
 
-S=numpy.array([(scale[0], 0,        1),
-               (0,        scale[1], 1),
-               (0,        0,        1))
+S=numpy.array([(scale[0], 0,        0),
+               (0,        scale[1], 0),
+               (0,        0,        1)])
 
-M=numpy.array([(1,  0, 1),
-               (0, -1, 1),
+M=numpy.array([(1,  0, 0),
+               (0, -1, 0),
                (0,  0, 1)])
 
 def w2sScale(vect):
     """Scale vector from world to screen"""
-    return dot(S,abs(vect))
+    vect=numpy.concatenate((vect,(1.,)))
+    return numpy.dot(S,abs(vect)).tolist()[0:2]
 
 p=w2sScale(wtop)
 P=numpy.array([(1, 0, p[0]),
                (0, 1, p[1]),
                (0, 0, 1)])
-T=dot(P,dot(M,S))
+T=numpy.dot(P,numpy.dot(M,S))
 
 def w2sPos(vect):
     """Transform world coordinates to screen coordinates"""
-    vect=numpy.array(vect+(1,))
-    return dot(T,vect)
+    vect=numpy.concatenate((vect,(1.,)))
+    return numpy.dot(T,vect).tolist()[0:2]
+
+stop=numpy.array([(0,0)])
+sbot=w2sScale(size)
 
 TI=numpy.array([(1/scale[0], 0,         -p[0]/scale[0]),
                 (0,          -1/scale[1], p[1]/scale[1] ),
@@ -41,12 +45,14 @@ SI=numpy.array([(1/scale[0], 0,          0),
                 (0,          0,          1)])
 def s2wScale(vect):
     """Scale vector from screen to world"""
-    return dot(SI,abs(vect))
+    vect=numpy.concatenate((vect,(1.,)))
+    return numpy.dot(SI,abs(vect)).tolist()[0:2]
 
 def s2wPos(vect):
     """Transform screen coordinates to world coordinates"""
-    vect=numpy.array(vect+(1,))
-    return dot(TI,vect)
+    vect=numpy.concatenate((vect,(1.,)))
+    return numpy.dot(TI,vect).tolist()[0:2]
+
 #WIDTH=40
 #HEIGHT=40
 #AWIDTH=int(WIDTH/2)

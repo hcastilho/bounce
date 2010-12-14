@@ -20,10 +20,10 @@ class Ball(object):
 
         self._initDisplay()
 
-        rx=random.randrange(-pgview.AWIDTH+self.radiusW,
-                pgview.AWIDTH-self.radiusW)
-        ry=random.randrange(-pgview.AHEIGHT+self.radiusW
-                ,pgview.AHEIGHT-self.radiusW)
+        rx=random.randrange(-pgview.size[0]/2+self.radiusW,
+                pgview.size[0]/2-self.radiusW)
+        ry=random.randrange(-pgview.size[1]/2+self.radiusW
+                ,pgview.size[1]/2-self.radiusW)
         pos=Box2D.b2Vec2(rx,ry)
 
 
@@ -112,15 +112,15 @@ class World(object):
         self.posIterations=8
 
         aabb=Box2D.b2AABB()
-        aabb.upperBound=(pgview.AWIDTH,pgview.AHEIGHT)
-        aabb.lowerBound=(-pgview.AWIDTH,-pgview.AHEIGHT)
+        aabb.upperBound=Box2D.b2Vec2(pgview.size[0]/2,pgview.size[1]/2)
+        aabb.lowerBound=Box2D.b2Vec2(-pgview.size[0]/2,-pgview.size[1]/2)
 
         self.world=Box2D.b2World(aabb,gravity,doSleep)
 
         self.boundaryListener=BoundListener()
         self.world.SetBoundaryListener(self.boundaryListener)
 
-        self.screen=pygame.display.set_mode(pgview.SBOT)
+        self.screen=pygame.display.set_mode(pgview.sbot)
 
         self.makeBounds()
 
@@ -129,16 +129,17 @@ class World(object):
 
 
     def makeBounds(self):
+        (AWIDTH,AHEIGHT)=pgview.size/2
         # Left
-        self.staticObjs.append(Wall(self.world,(-pgview.AWIDTH,0),(1,pgview.AHEIGHT)))
+        self.staticObjs.append(Wall(self.world,(-AWIDTH,0),(1,AHEIGHT)))
         # Right
-        self.staticObjs.append(Wall(self.world,(pgview.AWIDTH,0),(1,pgview.AHEIGHT)))
+        self.staticObjs.append(Wall(self.world,(AWIDTH,0),(1,AHEIGHT)))
         # Top
         #self.staticObjs.append(Wall(self.world,(0,pgview.AHEIGHT),(pgview.AWIDTH,1)))
-        self.staticObjs.append(Wall(self.world,(-pgview.AWIDTH,pgview.AHEIGHT),(pgview.AWIDTH/2,1)))
-        self.staticObjs.append(Wall(self.world,(pgview.AWIDTH,pgview.AHEIGHT),(pgview.AWIDTH/2,1)))
+        self.staticObjs.append(Wall(self.world,(-AWIDTH,AHEIGHT),(AWIDTH/2,1)))
+        self.staticObjs.append(Wall(self.world,(AWIDTH,AHEIGHT),(AWIDTH/2,1)))
         # Bottom
-        self.staticObjs.append(Wall(self.world,(0,-pgview.AHEIGHT),(pgview.AWIDTH,1)))
+        self.staticObjs.append(Wall(self.world,(0,-AHEIGHT),(AWIDTH,1)))
 
 
     def makeBall(self):
@@ -151,13 +152,22 @@ class World(object):
         del(self.objects[index])
 
     def destroyBallHash(self,hash):
+        # Get index
         i=-1
         for index in range(len(self.objects)):
             if self.objects[index].body.__hash__==hash: i=index
+
         if i==-1: return
         else:
             self.destroyBall(i)
-            if self.selectedObject==i: self.selectObject()
+            # Destroyed ball is currently selected/active
+            if self.selectedObject==i:
+                # No more balls to select
+                if len(self.objects)==0:
+                    self.selectedObject=-1
+                    return
+                else:
+                    self.selectObject()
 
     def step(self):
         self.world.Step(self.timeStep,self.velIterations,self.posIterations)
@@ -185,7 +195,7 @@ class World(object):
         self.objects[self.selectedObject].select()
 
     def selectObject(self):
-        if len(self.objects)==0: return
+        if len(self.objects)==0 or self.selectedObject==-1: return
 
         self.objects[self.selectedObject].select()
 
@@ -193,11 +203,12 @@ class World(object):
         if len(self.objects)==0: return
 
         if self.selectedObject==-1: self.selectNextObject()
+
         self.objects[self.selectedObject].activate()
         self._createJoint(pos)
 
     def deactivateObject(self):
-        if len(self.objects)==0: return
+        if len(self.objects)==0 or self.selectedObject==-1: return
 
         self._destroyJoint()
         self.objects[self.selectedObject].select()
@@ -210,7 +221,7 @@ class World(object):
         pos=pgview.s2wPos(pos)
         mouseDef.target=Box2D.b2Vec2(pos[0], pos[1])
         #mouseDef.target=obj.body.position
-        mouseDef.maxForce=20000*obj.body.massData.mass
+        mouseDef.maxForce=20000*obj.body.GetMass()
         #mouseDef.frequencyHz=1
         #mouseDef.dampening=0.3
         mouseDef.body1=self.world.groundBody
@@ -222,11 +233,19 @@ class World(object):
         self.world.DestroyJoint(self.joint)
 
     def updateTarget(self,pos):
+        if len(self.objects)==0 or self.selectedObject==-1: return
+
         obj=self.objects[self.selectedObject]
         obj.body.isSpleeping=False
 
         pos=pgview.s2wPos(pos)
         self.joint.target=Box2D.b2Vec2(pos[0], pos[1])
+
+    def pushObject(self,acc):
+        obj=self.objects[selectedObject]
+        point=obj.body.getMassData.center
+        force=acc*obj.body.GetMass()
+        obj.body.ApplyForce(b2Vec2 force, b2Vec2 point)
 
     def destroyViolations(self):
         for hash in self.boundaryListener.violations:
