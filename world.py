@@ -7,11 +7,15 @@ import Box2D,pygame
 import random
 import pgview
 
-class Ball(object):
+class Ball(pygame.sprite.Sprite):
     """Bola ;)"""
+
+    image=None
+
     def __init__(self,world):
 
-        #self.originalSurface=pygame.image.load("beach-ball.png").convert()
+        pygame.sprite.Sprite.__init__(self)
+
 
         self.radiusW=3
         self.radiusS=pgview.w2sScale((0,self.radiusW))[1]
@@ -31,9 +35,13 @@ class Ball(object):
 
 
     def _initDisplay(self):
-        self.surface=pygame.image.load("beach-ball.png").convert()
-        self.surface=pygame.transform.scale(self.surface,(2*self.radiusS,2*self.radiusS))
-        self.surface.set_colorkey((255,0,0),pygame.RLEACCEL)
+        if Ball.image is None:
+            img=pygame.image.load("beach-ball.png").convert()
+            img=pygame.transform.scale(img,(2*self.radiusS,2*self.radiusS))
+            img.set_colorkey((255,0,0),pygame.RLEACCEL)
+            Ball.image=img
+
+        self.surface=Ball.image
         self.rect = self.surface.get_rect()
 
 
@@ -55,6 +63,8 @@ class Ball(object):
 
         self.body=body
 
+    def update(self):
+        self.step()
 
     def step(self):
         pos=self.body.GetPosition()
@@ -65,8 +75,8 @@ class Ball(object):
     def draw(self,screen):
         screen.blit(self.surface,self.rect)
 
-    def select(self):
-        pygame.draw.circle(self.surface,(0,0,255),(self.rect.w/2,self.rect.h/2),self.radiusS+1,self.thickness)
+    def select(self,color):
+        pygame.draw.circle(self.surface,color,(self.rect.w/2,self.rect.h/2),self.radiusS+1,self.thickness)
 
     def activate(self):
         pygame.draw.circle(self.surface,(0,255,0),(self.rect.w/2,self.rect.h/2),self.radiusS+1,self.thickness)
@@ -102,7 +112,10 @@ class Wall(object):
 
 class World(object):
     def __init__(self):
-        self.objects=[]
+        self.balls=pygame.sprite.Group()
+        self.selectedBall=None
+        self.selectedActive=False
+
         self.staticObjs=[]
 
         gravity=(0,-10)
@@ -124,9 +137,6 @@ class World(object):
 
         self.makeBounds()
 
-        self.selectedObject=-1
-
-
 
     def makeBounds(self):
         (AWIDTH,AHEIGHT)=pgview.size/2
@@ -143,119 +153,59 @@ class World(object):
 
 
     def makeBall(self):
+        self.balls.add(Ball(self.world))
 
-        self.objects.append(Ball(self.world))
+    def getBallsFromBodies(self,bodies):
+        ballList=[]
+        for body in bodies:
+            for ball in self.balls:
+                if body is ball.body: ballList.append(ball)
 
-    def destroyBall(self,index):
-        obj=self.objects[index]
-        self.world.DestroyBody(obj.body)
-        del(self.objects[index])
+        return ballList
 
-    def destroyBallHash(self,hash):
-        # Get index
-        i=-1
-        for index in range(len(self.objects)):
-            if self.objects[index].body.__hash__==hash: i=index
-
-        if i==-1: return
-        else:
-            self.destroyBall(i)
-            # Destroyed ball is currently selected/active
-            if self.selectedObject==i:
-                # No more balls to select
-                if len(self.objects)==0:
-                    self.selectedObject=-1
-                    return
-                else:
-                    self.selectObject()
+    def destroyViolations(self,players):
+        balls=self.getBallsFromBodies(self.boundaryListener.violations)
+        for ball in balls:
+            self.world.DestroyBody(ball.body)
+            if player.ball is ball:
+                player.ball=None
+                player.active=False
+            self.balls.remove(ball)
 
     def step(self):
         self.world.Step(self.timeStep,self.velIterations,self.posIterations)
-        self.destroyViolations()
-        for obj in self.objects:
-            obj.step()
+        for ball in self.balls:
+            ball.step()
 
     def draw(self):
             self.screen.fill(pgview.BG_COLOR)
             for obj in self.staticObjs:
                 obj.draw(self.screen)
-            for obj in self.objects:
-               obj.draw(self.screen)
+            for ball in self.balls:
+               ball.draw(self.screen)
             pygame.display.flip()
 
-    def selectNextObject(self):
+    def createJoint(self,ball):
 
-        if len(self.objects)==0: return
-
-        if self.selectedObject!=-1: self.objects[self.selectedObject].unselect()
-
-        self.selectedObject+=1
-        if self.selectedObject>=len(self.objects): self.selectedObject=0
-
-        self.objects[self.selectedObject].select()
-
-    def selectObject(self):
-        if len(self.objects)==0 or self.selectedObject==-1: return
-
-        self.objects[self.selectedObject].select()
-
-    def activateObject(self,pos):
-        if len(self.objects)==0: return
-
-        if self.selectedObject==-1: self.selectNextObject()
-
-        self.objects[self.selectedObject].activate()
-        self._createJoint(pos)
-
-    def deactivateObject(self):
-        if len(self.objects)==0 or self.selectedObject==-1: return
-
-        self._destroyJoint()
-        self.objects[self.selectedObject].select()
-
-    def _createJoint(self,pos):
-
-        obj=self.objects[self.selectedObject]
+        ball=self.balls[self.selectedObject]
 
         mouseDef=Box2D.b2MouseJointDef()
         pos=pgview.s2wPos(pos)
         mouseDef.target=Box2D.b2Vec2(pos[0], pos[1])
-        #mouseDef.target=obj.body.position
-        mouseDef.maxForce=20000*obj.body.GetMass()
-        #mouseDef.frequencyHz=1
-        #mouseDef.dampening=0.3
+        mouseDef.maxForce=20000*ball.body.GetMass()
         mouseDef.body1=self.world.groundBody
-        mouseDef.body2=obj.body
+        mouseDef.body2=ball.body
         mouseDef.collideConnected=True
-        self.joint=self.world.CreateJoint(mouseDef).asMouseJoint()
 
-    def _destroyJoint(self):
-        self.world.DestroyJoint(self.joint)
+        return self.world.CreateJoint(mouseDef).asMouseJoint()
 
-    def updateTarget(self,pos):
-        if len(self.objects)==0 or self.selectedObject==-1: return
+    def destroyJoint(self,joint):
+        self.world.DestroyJoint(joint)
 
-        obj=self.objects[self.selectedObject]
-        obj.body.isSpleeping=False
-
-        pos=pgview.s2wPos(pos)
-        self.joint.target=Box2D.b2Vec2(pos[0], pos[1])
-
-    def pushObject(self,acc):
-        obj=self.objects[selectedObject]
-        point=obj.body.getMassData.center
-        force=acc*obj.body.GetMass()
-        obj.body.ApplyForce(b2Vec2 force, b2Vec2 point)
-
-    def destroyViolations(self):
-        for hash in self.boundaryListener.violations:
-            self.destroyBallHash(hash)
-        self.boundaryListener.violations=[]
 
 class BoundListener(Box2D.b2BoundaryListener):
     violations=[]
     def Violation(self,body):
-        self.violations.append(body.__hash__)
-
+        self.violations.append(body)
 
 
