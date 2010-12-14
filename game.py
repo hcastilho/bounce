@@ -1,6 +1,7 @@
 import sys
 import pygame
 import world
+from world import Box2D
 import pgview
 import cwiid
 
@@ -91,6 +92,7 @@ class Player(object):
         if self.ball!=None:
             self.ball.unselect()
             ind=group.sprites().index(self.ball)+1
+            if ind>=len(group): ind=0
             self.ball=group.sprites()[ind]
         else:
             self.ball=group.sprites()[0]
@@ -99,11 +101,11 @@ class Player(object):
 
     def activate(self,world):
         if self.ball==None:
-            self.selectNext()
+            self.selectNext(world.balls)
 
         if self.ball!=None:
             if self.control=='Mouse':
-                self.joint=world.createJoint(ball)
+                self.joint=world.createJoint(self.ball)
             # TODO
             #elif self.control='Wiimote':
             #    self.force=world.createForce()
@@ -111,7 +113,7 @@ class Player(object):
             self.ball.activate()
             self.active=True
 
-    def deactivate(self):
+    def deactivate(self,world):
         if self.ball!=None:
 
             if self.control=='Mouse':
@@ -121,7 +123,7 @@ class Player(object):
             #elif self.control='Wiimote':
             #    world.destroyForce(self.force)
 
-            self.ball.deactivate()
+            self.ball.deactivate(self.color)
             self.active=False
 
     def mouseInputs(self,event,world):
@@ -133,7 +135,7 @@ class Player(object):
             if event.button == 3: self.selectNext(world.balls)
         # Deactivate ball
         elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1: self.deactivate()
+            if event.button == 1: self.deactivate(world)
         # Update
         elif event.type == pygame.MOUSEMOTION and self.active:
             self.updateTarget(event.pos)
@@ -151,7 +153,7 @@ class Player(object):
         # Deactivate ball
         if not (wmstate['buttons'] & cwiid.BTN_B) and \
         (self.wmstate['buttons'] & cwiid.BTN_B):
-            self.deactivate()
+            self.deactivate(world)
         # Push ball
         if (wmstate['buttons'] & cwiid.BTN_B) and self.active:
             self.updateForce(wmstate['acc'][0],wmstate['acc'][2])

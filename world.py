@@ -41,7 +41,7 @@ class Ball(pygame.sprite.Sprite):
             img.set_colorkey((255,0,0),pygame.RLEACCEL)
             Ball.image=img
 
-        self.surface=Ball.image
+        self.surface=Ball.image.convert()
         self.rect = self.surface.get_rect()
 
 
@@ -83,6 +83,9 @@ class Ball(pygame.sprite.Sprite):
 
     def unselect(self):
         self._initDisplay()
+
+    def deactivate(self,color):
+        self.select(color)
 
 
 class Wall(object):
@@ -187,11 +190,9 @@ class World(object):
 
     def createJoint(self,ball):
 
-        ball=self.balls[self.selectedObject]
-
         mouseDef=Box2D.b2MouseJointDef()
-        pos=pgview.s2wPos(pos)
-        mouseDef.target=Box2D.b2Vec2(pos[0], pos[1])
+        #pos=pgview.s2wPos(pos)
+        #mouseDef.target=Box2D.b2Vec2(pos[0], pos[1])
         mouseDef.maxForce=20000*ball.body.GetMass()
         mouseDef.body1=self.world.groundBody
         mouseDef.body2=ball.body
