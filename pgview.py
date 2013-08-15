@@ -2,6 +2,11 @@
 import pygame
 import numpy
 
+def centerRectangles(r1T,r1S,r2S):
+    if r2S[0]>r1S[0] or r2S[1]>r1S[1]: return None
+    r2T=(r1T[0]+int((r1S[0]-r2S[0])/2),r1T[1]+int((r1S[1]-r2S[1])/2))
+    return r2T
+
 BG_COLOR=(0,255,255)
 
 size=numpy.array([40.,40.])
@@ -52,6 +57,7 @@ def s2wPos(vect):
     """Transform screen coordinates to world coordinates"""
     vect=numpy.concatenate((vect,(1.,)))
     return numpy.dot(TI,vect).tolist()[0:2]
+
 
 #WIDTH=40
 #HEIGHT=40
